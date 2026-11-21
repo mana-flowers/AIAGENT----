@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>创游助手 · GameForge — AI 游戏开发智能体</title>
+<style>
+/* ============ 基础与主题 ============ */
+:root{
+  --bg:#070b14; --bg2:#0b1220; --panel:rgba(15,24,42,.82); --panel2:rgba(20,32,56,.7);
+  --line:rgba(90,140,220,.18); --line2:rgba(90,140,220,.35);
+  --cyan:#22d3ee; --blue:#3b82f6; --purple:#a855f7; --green:#34d399;
+  --orange:#fb923c; --pink:#f472b6; --gold:#fbbf24;
+  --text:#e8f1ff; --muted:#8ea6c8; --dim:#5b759c;
+  --glow:rgba(34,211,238,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"Microsoft YaHei","PingFang SC",-apple-system,sans-serif;
+  background:var(--bg); color:var(--text); overflow:hidden;
+  background-image:
+    radial-gradient(1200px 700px at 15% -10%,rgba(34,211,238,.10),transparent 60%),
+    radial-gradient(1000px 600px at 100% 0%,rgba(168,85,247,.10),transparent 55%),
+    radial-gradient(900px 700px at 50% 120%,rgba(59,130,246,.08),transparent 60%);
+}
+/* 网格背景 */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:44px 44px;opacity:.25;
+  mask-image:radial-gradient(ellipse at 50% 40%,#000 40%,transparent 100%);
+}
+#particles{position:fixed;inset:0;pointer-events:none;z-index:0}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============ 布局 ============ */
+.app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column}
+.topbar{
+  height:62px;flex:none;display:flex;align-items:center;gap:18px;padding:0 24px;
+  background:linear-gradient(90deg,rgba(10,16,30,.95),rgba(10,16,30,.75));
+  border-bottom:1px solid var(--line);backdrop-filter:blur(12px);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:21px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  box-shadow:0 0 22px var(--glow);animation:float 3.5s ease-in-out infinite;
+}
+@keyframes float{50%{transform:translateY(-4px)}}
+.brand h1{font-size:18px;letter-spacing:1px;font-weight:800}
+.brand h1 span{background:linear-gradient(90deg,var(--cyan),var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand .sub{font-size:10px;color:var(--dim);letter-spacing:2.5px;margin-top:2px}
+.topbar .sep{width:1px;height:28px;background:var(--line2)}
+.proj-tag{
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+  padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:var(--panel2);
+}
+.proj-tag b{color:var(--gold)}
+.topbar .spacer{flex:1}
+.status-live{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 1.8s infinite}
+@keyframes pulse{50%{opacity:.4;transform:scale(.8)}}
+.ver-chip{font-size:11px;color:var(--cyan);border:1px solid var(--line2);padding:5px 10px;border-radius:14px;font-family:Consolas,monospace}
+
+.main{flex:1;display:grid;grid-template-columns:300px 1fr 380px;gap:14px;padding:14px;min-height:0}
+.col{display:flex;flex-direction:column;gap:14px;min-height:0}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,.3);overflow:hidden;
+  display:flex;flex-direction:column;min-height:0;
+}
+.card-hd{
+  flex:none;display:flex;align-items:center;gap:9px;padding:12px 15px;
+  border-bottom:1px solid var(--line);font-size:13px;font-weight:700;letter-spacing:.5px;
+}
+.card-hd .ic{font-size:15px}
+.card-hd .tail{margin-left:auto;font-size:10px;color:var(--dim);font-weight:400;font-family:Consolas,monospace}
+.card-bd{padding:14px;overflow:auto;flex:1;min-height:0}
+
+/* ============ 左栏：需求输入 ============ */
+.input-card{flex:none}
+textarea{
+  width:100%;height:82px;resize:none;background:rgba(4,10,22,.7);color:var(--text);
+  border:1px solid var(--line2);border-radius:10px;padding:11px 12px;font-size:12.5px;
+  line-height:1.6;font-family:inherit;outline:none;transition:.2s;
+}
+textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+textarea::placeholder{color:var(--dim)}
+.quick-label{font-size:10px;color:var(--dim);margin:11px 0 7px;letter-spacing:1px}
+.quick-btns{display:flex;flex-direction:column;gap:6px}
+.qbtn{
+  text-align:left;font-size:11.5px;color:var(--muted);cursor:pointer;
+  padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02);
+  transition:.18s;display:flex;align-items:center;gap:8px;line-height:1.35;
+}
+.qbtn:hover{border-color:var(--cyan);color:var(--text);background:rgba(34,211,238,.07);transform:translateX(2px)}
+.qbtn .n{color:var(--cyan);font-family:Consolas,monospace;font-size:10px;flex:none}
+.run-btn{
+  margin-top:12px;width:100%;padding:12px;border:none;border-radius:10px;cursor:pointer;
+  font-size:13px;font-weight:800;letter-spacing:1px;color:#04121a;
+  background:linear-gradient(90deg,var(--cyan),#38bdf8);
+  box-shadow:0 6px 22px rgba(34,211,238,.35);transition:.2s;position:relative;overflow:hidden;
+}
+.run-btn:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(34,211,238,.5)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.run-btn .arrow{margin-left:6px}
+
+/* 需求账本 */
+.ledger-list{display:flex;flex-direction:column;gap:7px}
+.ledger-item{
+  display:flex;gap:9px;align-items:flex-start;font-size:11px;color:var(--muted);
+  padding:8px 9px;border-radius:8px;background:rgba(59,130,246,.06);border-left:2px solid var(--blue);
+  animation:slidein .35s ease;
+}
+@keyframes slidein{from{opacity:0;transform:translateX(-8px)}}
+.ledger-item .idx{color:var(--cyan);font-family:Consolas,monospace;flex:none;font-size:10px}
+.ledger-item .txt{line-height:1.45;color:var(--text)}
+.ledger-empty{color:var(--dim);font-size:11px;text-align:center;padding:18px 0}
+
+/* ============ 中栏：多智能体协作 ============ */
+.agents-card{flex:none}
+.agents-wrap{position:relative;padding:16px 12px 8px}
+.pipeline{display:flex;align-items:flex-start;justify-content:space-between;gap:4px}
+.agent-node{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;
+  transition:.3s;
+}
+.agent-avatar{
+  width:60px;height:60px;border-radius:16px;display:grid;place-items:center;font-size:27px;
+  background:rgba(255,255,255,.03);border:1.5px solid var(--line2);transition:.35s;position:relative;
+}
+.agent-avatar::after{
+  content:"";position:absolute;inset:-5px;border-radius:20px;border:1.5px solid transparent;transition:.35s;
+}
+.agent-node.active .agent-avatar{
+  transform:translateY(-4px) scale(1.06);
+  background:rgba(34,211,238,.12);border-color:var(--cyan);
+  box-shadow:0 0 26px rgba(34,211,238,.35);
+}
+.agent-node.active .agent-avatar::after{border-color:var(--cyan);animation:ring 1.2s infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.25);opacity:0}}
+.agent-node.done .agent-avatar{background:rgba(52,211,153,.1);border-color:var(--green)}
+.agent-name{font-size:11.5px;font-weight:700;color:var(--text)}
+.agent-role{font-size:9.5px;color:var(--dim)}
+.agent-state{
+  font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.04);
+  color:var(--dim);min-height:17px;transition:.2s;
+}
+.agent-node.active .agent-state{color:var(--cyan);background:rgba(34,211,238,.12)}
+.agent-node.done .agent-state{color:var(--green);background:rgba(52,211,153,.12)}
+.flow-line{
+  flex:0 0 26px;height:2px;margin-top:29px;background:var(--line2);border-radius:2px;position:relative;overflow:hidden;
+}
+.flow-line::after{
+  content:"";position:absolute;top:-2px;left:-30%;width:30%;height:6px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0;
+}
+.agent-node.active + .flow-line::after,.flow-line.flowing::after{opacity:1;animation:flow 1s linear infinite}
+@keyframes flow{to{left:110%}}
+
+/* 日志 */
+.log-card{flex:1}
+.log-stream{font-family:Consolas,"Microsoft YaHei",monospace;font-size:11px;line-height:1.75}
+.log-line{display:flex;gap:8px;padding:2px 0;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}}
+.log-time{color:var(--dim);flex:none;font-size:10px}
+.log-tag{flex:none;font-weight:700;font-size:10px;padding:0 4px;border-radius:3px;height:16px;line-height:16px}
+.t-plan{color:var(--purple);background:rgba(168,85,247,.12)}
+.t-code{color:var(--cyan);background:rgba(34,211,238,.12)}
+.t-art{color:var(--pink);background:rgba(244,114,182,.12)}
+.t-qa{color:var(--green);background:rgba(52,211,153,.12)}
+.t-sys{color:var(--gold);background:rgba(251,191,36,.12)}
+.log-msg{color:var(--muted);word-break:break-all}
+.log-msg b{color:var(--text)}
+.cursor{display:inline-block;width:6px;height:12px;background:var(--cyan);vertical-align:middle;animation:blink .7s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ============ 右栏：游戏预览 ============ */
+.game-card{flex:none}
+.screen-wrap{position:relative;background:#050912;border-radius:10px;overflow:hidden;border:1px solid var(--line2)}
+#game{display:block;width:100%;height:auto;aspect-ratio:16/9;image-rendering:pixelated}
+.screen-hud{
+  position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+  padding:8px 10px;font-family:Consolas,monospace;font-size:11px;pointer-events:none;
+  background:linear-gradient(#0009,transparent);
+}
+.hud-score{color:var(--gold)}
+.hud-hp{color:var(--pink)}
+.screen-badge{
+  position:absolute;bottom:8px;left:8px;font-size:9px;color:var(--dim);
+  font-family:Consolas,monospace;background:#0008;padding:3px 7px;border-radius:5px;
+}
+.game-tip{font-size:10px;color:var(--dim);margin-top:8px;text-align:center;font-family:Consolas,monospace}
+.game-tip kbd{background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:1px 5px;color:var(--muted)}
+
+/* 自检报告 */
+.qa-card{flex:none}
+.qa-summary{display:flex;gap:8px;margin-bottom:10px}
+.qa-stat{flex:1;text-align:center;padding:9px 4px;border-radius:9px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.qa-stat .num{font-size:20px;font-weight:800;color:var(--green);font-family:Consolas,monospace}
+.qa-stat .lbl{font-size:9.5px;color:var(--dim);margin-top:2px}
+.qa-list{display:flex;flex-direction:column;gap:5px}
+.qa-row{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--muted);padding:4px 0}
+.qa-row .ok{color:var(--green);font-size:12px}
+.qa-row .fix{color:var(--orange);font-size:12px}
+.qa-row.fixed .t{color:var(--orange)}
+.qa-row .t{flex:1}
+
+/* 版本时间轴 */
+.ver-card{flex:1;min-height:0}
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--line2)}
+.vnode{
+  position:relative;padding:8px 10px;margin-bottom:8px;border-radius:9px;cursor:pointer;
+  background:rgba(255,255,255,.02);border:1px solid var(--line);transition:.18s;
+}
+.vnode:hover{border-color:var(--cyan);background:rgba(34,211,238,.05)}
+.vnode::before{
+  content:"";position:absolute;left:-20px;top:13px;width:10px;height:10px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--dim);
+}
+.vnode.current{border-color:var(--cyan);background:rgba(34,211,238,.08)}
+.vnode.current::before{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.vnode .vt{font-size:11px;color:var(--text);font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.vnode .vt .h{font-family:Consolas,monospace;font-size:9px;color:var(--dim);font-weight:400}
+.vnode .vd{font-size:9.5px;color:var(--dim);margin-top:3px;line-height:1.4}
+.vnode .rbtn{
+  font-size:9px;color:var(--cyan);border:1px solid var(--line2);border-radius:5px;
+  padding:1px 6px;margin-top:5px;display:inline-block;
+}
+
+/* ============ 底部状态栏 ============ */
+.statusbar{
+  height:32px;flex:none;display:flex;align-items:center;gap:20px;padding:0 20px;
+  border-top:1px solid var(--line);background:rgba(8,13,24,.9);font-size:10.5px;color:var(--dim);
+  font-family:Consolas,monospace;
+}
+.statusbar b{color:var(--muted);font-weight:600}
+.statusbar .spacer{flex:1}
+
+/* toast */
+#toast{
+  position:fixed;top:74px;left:50%;transform:translateX(-50%) translateY(-20px);
+  padding:11px 22px;border-radius:11px;font-size:12.5px;font-weight:600;z-index:99;
+  background:linear-gradient(90deg,rgba(34,211,238,.95),rgba(59,130,246,.95));color:#04121a;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:.35s;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* 启动遮罩 */
+#boot{
+  position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;transition:opacity .6s;
+}
+#boot.hide{opacity:0;pointer-events:none}
+.boot-logo{font-size:60px;animation:float 2s infinite}
+.boot-title{font-size:24px;font-weight:800;letter-spacing:3px;
+  background:linear-gradient(90deg,var(--cyan),var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent}
+.boot-bar{width:260px;height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.boot-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--purple));transition:width .3s}
+.boot-tip{font-size:11px;color:var(--dim);font-family:Consolas,monospace}
+</style>
+</head>
+<body>
+<div id="particles"></div>
+<div id="toast"></div>
+
+<div id="boot">
+  <div class="boot-logo">🎮</div>
+  <div class="boot-title">创游助手 GameForge</div>
+  <div class="boot-bar"><i id="bootBar"></i></div>
+  <div class="boot-tip" id="bootTip">正在初始化智能体内核...</div>
+</div>
+
+<div class="app">
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">🎮</div>
+      <div><h1>创游<span>助手</span> <span style="font-size:10px;color:var(--dim)">GameForge</span></h1>
+      <div class="sub">AI GAME DEVELOPMENT AGENT</div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="proj-tag">🎯 验证项目 · <b>史莱姆勇者</b></div>
+    <div class="spacer"></div>
+    <div class="status-live"><span class="dot"></span><span id="liveTxt">系统就绪</span></div>
+    <div class="ver-chip" id="verChip">v1.0 · mock</div>
+  </div>
+
+  <!-- 主区 -->
+  <div class="main">
+    <!-- 左栏 -->
+    <div class="col">
+      <div class="card input-card">
+        <div class="card-hd"><span class="ic">💬</span>玩家意见输入<span class="tail">NATURAL LANGUAGE</span></div>
+        <div class="card-bd">
+          <textarea id="reqInput" placeholder="用一句话说出你的想法，例如：把史莱姆改成蓝色，并让主角跑得更快..."></textarea>
+          <div class="quick-label">⚡ 一键演示需求</div>
+          <div class="quick-btns" id="quickBtns"></div>
+          <button class="run-btn" id="runBtn">开始创作 <span class="arrow">▶</span></button>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1">
+        <div class="card-hd"><span class="ic">🧠</span>需求账本<span class="tail" id="ledgerCount">0 条</span></div>
+        <div class="card-bd"><div class="ledger-list" id="ledgerList">
+          <div class="ledger-empty">还没有需求记录<br>说出想法后，我会永久记住并随时调用</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- 中栏 -->
+    <div class="col">
+      <div class="card agents-card">
+        <div class="card-hd"><span class="ic">🤖</span>多智能体协作流水线<span class="tail">MASTER–WORKER</span></div>
+        <div class="agents-wrap">
+          <div class="pipeline" id="pipeline"></div>
+        </div>
+      </div>
+
+      <div class="card log-card">
+        <div class="card-hd"><span class="ic">📜</span>实时协作日志<span class="tail">可观测 · 可追溯</span></div>
+        <div class="card-bd"><div class="log-stream" id="logStream">
+          <div class="log-line"><span class="log-time">SYSTEM</span><span class="log-tag t-sys">就绪</span><span class="log-msg">创游助手内核已启动，等待玩家需求输入<span class="cursor"></span></span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- 右栏 -->
+    <div class="col">
+      <div class="card game-card">
+        <div class="card-hd"><span class="ic">🕹️</span>游戏实时预览<span class="tail" id="gameStateTag">可游玩</span></div>
+        <div class="card-bd" style="padding:10px">
+          <div class="screen-wrap">
+            <canvas id="game" width="480" height="270"></canvas>
+            <div class="screen-hud"><span class="hud-score" id="hudScore">SCORE 0000</span><span class="hud-hp" id="hudHp">HP ♥♥♥</span></div>
+            <div class="screen-badge" id="screenBadge">SLIME HERO · 程序化生成</div>
+          </div>
+          <div class="game-tip"><kbd>← →</kbd> 移动　<kbd>↑</kbd> 跳跃　<kbd>J</kbd> 攻击</div>
+        </div>
+      </div>
+
+      <div class="card qa-card">
+        <div class="card-hd"><span class="ic">🔍</span>自检自查报告<span class="tail" id="qaTime">等待检测</span></div>
+        <div class="card-bd" style="padding:11px 14px">
+          <div class="qa-summary">
+            <div class="qa-stat"><div class="num" id="qaPass">--</div><div class="lbl">通过项</div></div>
+            <div class="qa-stat"><div class="num" style="color:var(--orange)" id="qaFix">--</div><div class="lbl">自动修复</div></div>
+            <div class="qa-stat"><div class="num" id="qaScore">--</div><div class="lbl">健康分</div></div>
+          </div>
+          <div class="qa-list" id="qaList"><div class="qa-row"><span class="ok">◌</span><span class="t">生成后自动执行静态检查 + 运行探针...</span></div></div>
+        </div>
+      </div>
+
+      <div class="card ver-card">
+        <div class="card-hd"><span class="ic">🕰️</span>版本时间轴 · 随时回滚<span class="tail" id="verCount">1 个版本</span></div>
+        <div class="card-bd"><div class="timeline" id="timeline"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 状态栏 -->
+  <div class="statusbar">
+    <span>内核 <b>ONLINE</b></span>
+    <span>智能体 <b>5</b></span>
+    <span>已注册工具 <b>10</b></span>
+    <span>事务 <b id="sbTx">0</b></span>
+    <span>快照 <b id="sbSnap">1</b></span>
+    <span class="spacer"></span>
+    <span>需求记忆 <b id="sbMem">0</b></span>
+    <span>© 2026 创游助手 · 北职大人工智能创新应用校赛</span>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+ *  创游助手 · 前端演示内核
+ *  完全自包含：多智能体协作模拟 / 需求记忆 / 版本快照回滚 / 可玩游戏
+ * ============================================================ */
+
+/* ---------- 工具函数 ---------- */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const nowTime = () => { const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; };
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ---------- 程序化粒子背景 ---------- */
+(function particles(){
+  const c=document.createElement('canvas'), ctx=c.getContext('2d');
+  $('particles').appendChild(c);
+  let ps=[], W,H;
+  function resize(){ W=c.width=innerWidth; H=c.height=innerHeight; }
+  addEventListener('resize',resize); resize();
+  for(let i=0;i<55;i++) ps.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.8+.4,s:Math.random()*.4+.15,a:Math.random()*.5+.15});
+  (function loop(){
+    ctx.clearRect(0,0,W,H);
+    for(const p of ps){ p.y-=p.s; if(p.y<-5){p.y=H+5;p.x=Math.random()*W;}
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fillStyle=`rgba(120,200,255,${p.a})`; ctx.fill(); }
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* ---------- 全局状态 ---------- */
+const State = {
+  requirements:[],      // 需求账本（永久记忆）
+  versions:[],          // 版本快照
+  currentVersion:0,
+  txCount:0,
+  config:{              // 游戏可配置参数（由需求驱动）
+    heroColor:'#38bdf8', slimeColor:'#4ade80', slimeSpeed:1.0, heroSpeed:1.0,
+    gravity:0.55, jumpPower:11, bg:'day', goldSlime:false, extraLife:false, scoreMul:1
+  },
+  busy:false
+};
+
+/* ---------- 智能体定义 ---------- */
+const AGENTS=[
+  {id:'plan', name:'规划师', role:'Planner', icon:'🧭'},
+  {id:'code', name:'代码师', role:'Coder', icon:'💻'},
+  {id:'art',  name:'美术师', role:'Artist', icon:'🎨'},
+  {id:'qa',   name:'质检师', role:'QA', icon:'🔍'},
+];
+const LOG_TAG={plan:['规划','t-plan'],code:['代码','t-code'],art:['美术','t-art'],qa:['质检','t-qa'],sys:['系统','t-sys']};
+
+/* ---------- 需求解析：把自然语言映射为配置变更（模拟 LLM 意图识别） ---------- */
+function parseIntent(text){
+  const t=text.toLowerCase(), ops=[]; const c=JSON.parse(JSON.stringify(State.config));
+  const colorMap={'蓝':'#38bdf8','蓝色':'#38bdf8','粉':'#f472b6','粉色':'#f472b6','红':'#f87171','红色':'#f87171',
+    '紫':'#a855f7','紫色':'#a855f7','绿':'#4ade80','绿色':'#4ade80','金':'#fbbf24','金色':'#fbbf24',
+    '橙':'#fb923c','橙色':'#fb923c','青':'#22d3ee','青色':'#22d3ee','黑':'#334155','白':'#e2e8f0'};
+  // 主角颜色
+  for(const k in colorMap){ if(t.includes('主角')&&t.includes(k)){ c.heroColor=colorMap[k]; ops.push(`主角配色 → ${k}`); break; } }
+  // 史莱姆颜色
+  for(const k in colorMap){ if(t.includes('史莱姆')&&t.includes(k)){ c.slimeColor=colorMap[k]; ops.push(`史莱姆配色 → ${k}`); break; } }
+  // 速度
+  if(/快|加速|速度调高/.test(t)){ if(t.includes('史莱姆')){c.slimeSpeed=1.8;ops.push('史莱姆速度 ×1.8');} else {c.heroSpeed=1.6;ops.push('主角速度 ×1.6');} }
+  if(/慢|减速|速度调低/.test(t)){ if(t.includes('史莱姆')){c.slimeSpeed=.5;ops.push('史莱姆速度 ×0.5');} else {c.heroSpeed=.6;ops.push('主角速度 ×0.6');} }
+  // 重力/跳跃
+  if(/跳得更高|跳跃力|高一点/.test(t)){ c.jumpPower=14; ops.push('跳跃力 → 14'); }
+  // 夜晚
+  if(/夜晚|黑夜|星空|夜间/.test(t)){ c.bg='night'; ops.push('场景 → 夜晚星空'); }
+  if(/白天|白天场景|晴天/.test(t)){ c.bg='day'; ops.push('场景 → 白昼'); }
+  // 金色史莱姆
+  if(/金色史莱姆|加分|翻倍/.test(t)){ c.goldSlime=true; c.scoreMul=2; ops.push('新增金色史莱姆 · 得分×2'); }
+  // 生命
+  if(/生命|多一条命|加血|三条命/.test(t)){ c.extraLife=true; ops.push('初始生命 → 5'); }
+  // 需求调用类问句（记忆检索）
+  const isQuery=/之前|刚才|我提过|有哪些要求|记住|什么要求/.test(t);
+  if(ops.length===0&&!isQuery){ ops.push('保持现有玩法，微调视觉表现'); }
+  return {config:c, ops, isQuery};
+}
+
+/* ---------- 日志系统（打字机） ---------- */
+async function log(type,msg,{typing=false}={}){
+  const box=$('logStream');
+  const line=document.createElement('div'); line.className='log-line';
+  const [tag,cls]=LOG_TAG[type];
+  line.innerHTML=`<span class="log-time">${nowTime()}</span><span class="log-tag ${cls}">${tag}</span><span class="log-msg"></span>`;
+  box.appendChild(line); const m=line.querySelector('.log-msg');
+  if(typing){
+    for(let i=0;i<msg.length;i++){ m.innerHTML=msg.slice(0,i+1)+'<span class="cursor"></span>'; await sleep(18); }
+    m.innerHTML=msg;
+  } else { m.innerHTML=msg; await sleep(90); }
+  box.scrollTop=box.scrollHeight;
+}
+
+/* ---------- 智能体 UI ---------- */
+function renderAgents(){
+  const p=$('pipeline'); p.innerHTML='';
+  AGENTS.forEach((a,i)=>{
+    const node=document.createElement('div'); node.className='agent-node'; node.id='agent-'+a.id;
+    node.innerHTML=`<div class="agent-avatar">${a.icon}</div><div class="agent-name">${a.name}</div>
+      <div class="agent-role">${a.role}</div><div class="agent-state" id="astate-${a.id}">待命</div>`;
+    p.appendChild(node);
+    if(i<AGENTS.length-1){ const l=document.createElement('div'); l.className='flow-line'; l.id='flow-'+i; p.appendChild(l); }
+  });
+}
+function setAgent(id,state,text){
+  const n=$('agent-'+id); if(!n) return;
+  n.classList.remove('active','done'); if(state) n.classList.add(state);
+  $('astate-'+id).textContent=text;
+}
+function resetAgents(){ AGENTS.forEach(a=>setAgent(a.id,null,'待命')); document.querySelectorAll('.flow-line').forEach(l=>l.classList.remove('flowing')); }
+
+/* ---------- 需求账本 ---------- */
+function addRequirement(text,source='玩家意见'){
+  State.requirements.push({text,source,time:nowTime()});
+  renderLedger(); $('sbMem').textContent=State.requirements.length;
+}
+function renderLedger(){
+  const box=$('ledgerList'); $('ledgerCount').textContent=State.requirements.length+' 条';
+  if(!State.requirements.length){ box.innerHTML='<div class="ledger-empty">还没有需求记录<br>说出想法后，我会永久记住并随时调用</div>'; return; }
+  box.innerHTML=State.requirements.map((r,i)=>`<div class="ledger-item"><span class="idx">#${String(i+1).padStart(2,'0')}</span><span class="txt">${esc(r.text)}</span></div>`).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function esc(s){ return s.replace(/[<>]/g,c=>({'<':'&lt;','>':'&gt;'}[c])); }
+
+/* ---------- 版本快照 ---------- */
+function snapshot(label,desc){
+  State.versions.push({label,desc,config:JSON.parse(JSON.stringify(State.config)),hash:hash(JSON.stringify(State.config)),time:nowTime()});
+  State.currentVersion=State.versions.length-1;
+  State.txCount++; $('sbTx').textContent=State.txCount; $('sbSnap').textContent=State.versions.length;
+  renderTimeline();
+}
+function hash(s){ let h=0; for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0; return 'snap_'+(h>>>0).toString(16).slice(0,8); }
+function renderTimeline(){
+  const box=$('timeline'); $('verCount').textContent=State.versions.length+' 个版本';
+  box.innerHTML=State.versions.map((v,i)=>`<div class="vnode ${i===State.currentVersion?'current':''}" data-i="${i}">
+    <div class="vt"><span>${esc(v.label)}</span><span class="h">${v.hash.slice(0,7)}</span></div>
+    <div class="vd">${esc(v.desc)} · ${v.time}</div>
+    ${i!==State.currentVersion?`<span class="rbtn">↩ 回滚到此版本</span>`:''}</div>`).join('');
+  box.querySelectorAll('.vnode').forEach(n=>n.onclick=()=>rollback(+n.dataset.i));
+}
+async function rollback(i){
+  if(State.busy) return;
+  const v=State.versions[i]; if(!v) return;
+  State.busy=true; $('runBtn').disabled=true;
+  await log('sys',`⟲ 回滚指令：恢复到快照 <b>${v.hash}</b>（${v.label}）`);
+  await log('code',`校验快照完整性 <b>PASS</b> · 内容寻址哈希一致`,{typing:true});
+  State.config=JSON.parse(JSON.stringify(v.config)); State.currentVersion=i;
+  renderTimeline(); applyConfig();
+  await log('sys',`✓ 回滚完成，游戏状态已恢复到 <b>${v.time}</b>，需求账本保持不变（共 ${State.requirements.length} 条记忆）`,{typing:true});
+  toast(`已回滚到版本 v${i+1}`);
+  State.busy=false; $('runBtn').disabled=false;
+}
+
+/* ---------- 自检自查 ---------- */
+async function runSelfCheck(){
+  const c=State.config;
+  const checks=[
+    {name:'GDScript 语法静态解析',ok:true},
+    {name:'场景节点引用完整性',ok:true},
+    {name:'精灵资源程序化生成校验',ok:true},
+    {name:'碰撞体/物理参数合理性',ok:true},
+    {name:'数值平衡运行探针',ok:true},
+    {name:'音频流采样率合规',ok:true},
+  ];
+  // 若速度过快触发自动修复（演示自检→修复闭环）
+  let fixed=0;
+  if(c.slimeSpeed>1.5){ checks.push({name:'史莱姆速度越界 → 已自动钳制',fixed:true}); c.slimeSpeed=1.5; fixed++; }
+  await log('qa',`启动自检：注入 <b>${checks.length}</b> 项检查规则 + 3 个运行探针...`,{typing:true});
+  for(const ck of checks){
+    await log('qa',`${ck.fixed?'⚠':'✓'} ${ck.name}`,{typing:false}); await sleep(110);
+  }
+  const pass=checks.filter(x=>x.ok).length, health=Math.round(pass/checks.length*100);
+  $('qaPass').textContent=pass; $('qaFix').textContent=fixed; $('qaScore').textContent=health;
+  $('qaTime').textContent=nowTime();
+  $('qaList').innerHTML=checks.map(ck=>`<div class="qa-row ${ck.fixed?'fixed':''}"><span class="${ck.fixed?'fix':'ok'}">${ck.fixed?'⚠':'✓'}</span><span class="t">${ck.name}</span></div>`).join('');
+  await log('qa',`自检完成：健康分 <b>${health}/100</b>，${fixed?`自动修复 <b>${fixed}</b> 项`:'无需修复'}`,{typing:true});
+  return health;
+}
+
+/* ---------- 主生成流程（多智能体协作） ---------- */
+const QUICK=[
+  {t:'帮我做一个史莱姆勇者横版闯关游戏',icon:'🚀'},
+  {t:'把主角改成粉色，史莱姆速度调快',icon:'🎨'},
+  {t:'增加金色史莱姆，击败后得分翻倍',icon:'✨'},
+  {t:'把场景改成夜晚星空，主角跳得更高',icon:'🌙'},
+];
+function renderQuick(){
+  $('quickBtns').innerHTML=QUICK.map((q,i)=>`<div class="qbtn" data-i="${i}"><span class="n">0${i+1}</span>${q.icon} ${q.t}</div>`).join('');
+  document.querySelectorAll('.qbtn').forEach(b=>b.onclick=()=>{ $('reqInput').value=QUICK[+b.dataset.i].t; });
+}
+function applyConfig(){ game.setConfig(State.config); }
+
+async function runFlow(){
+  if(State.busy) return;
+  const text=$('reqInput').value.trim();
+  if(!text){ toast('请先输入你的想法，或点击一键演示需求'); return; }
+  State.busy=true; $('runBtn').disabled=true; $('liveTxt').textContent='协作中...';
+  const {config,ops,isQuery}=parseIntent(text);
+  addRequirement(text);
+
+  // 记忆调用演示：若用户问"之前有哪些要求"，先展示检索
+  if(isQuery && State.requirements.length>1){
+    resetAgents();
+    await log('sys',`检测到记忆检索意图，调用需求账本（共 ${State.requirements.length} 条记录）...`,{typing:true});
+    await log('plan',`检索到历史要求：<b>${State.requirements.slice(0,-1).map(r=>r.text).join('；')}</b>`,{typing:true});
+    await log('sys',`✓ 记忆调用完成，所有要求均已纳入本次生成上下文`,{typing:true});
+    $('liveTxt').textContent='系统就绪'; State.busy=false; $('runBtn').disabled=false; return;
+  }
+
+  resetAgents(); clearLog();
+
+  // 1 规划师
+  setAgent('plan','active','理解需求中');
+  await log('plan',`接收玩家意见：「<b>${esc(text)}</b>」`,{typing:true});
+  await log('plan',`意图解析完成，生成 <b>${ops.length}</b> 项变更：${ops.join('、')}`,{typing:true});
+  await log('plan',`任务拆解 → 修改脚本 / 重绘素材 / 重合成音效 / 触发自检`,{typing:true});
+  setAgent('plan','done','✓ 完成'); $('flow-0').classList.add('flowing');
+
+  // 2 代码师
+  setAgent('code','active','生成 GDScript');
+  await log('code',`调用工具 <b>edit_gdscript</b> · 目标：Player.gd / Slime.gd`,{typing:true});
+  await log('code',`参数注入：gravity=${config.gravity} jump=${config.jumpPower} slimeSpeed=${config.slimeSpeed}`,{typing:true});
+  await log('code',`✓ GDScript 热更新完成，语法检查通过`,{typing:true});
+  setAgent('code','done','✓ 完成'); $('flow-1').classList.add('flowing');
+
+  // 3 美术师
+  setAgent('art','active','程序化绘制');
+  await log('art',`调用工具 <b>gen_art</b> · 程序化重绘角色/史莱姆像素图（无外部素材）`,{typing:true});
+  await log('art',`调用工具 <b>gen_audio</b> · Web Audio 合成 8-bit 音效`,{typing:true});
+  await log('art',`✓ 美术/音效/动画已按新参数重新生成`,{typing:true});
+  setAgent('art','done','✓ 完成'); $('flow-2').classList.add('flowing');
+
+  // 4 质检师 + 自检
+  setAgent('qa','active','自检自查');
+  const health=await runSelfCheck();
+  setAgent('qa','done','✓ 完成');
+
+  // 应用 + 快照
+  State.config=config; applyConfig();
+  snapshot(`v${State.versions.length+1} · ${ops[0]||'初始版本'}`, ops.join('；'));
+  await log('sys',`✓ 版本快照已写入事务链 · hash=<b>${State.versions[State.currentVersion].hash}</b>，可随时回滚`,{typing:true});
+  await log('sys',`🎉 生成完成！游戏已热更新，可直接试玩（健康分 ${health}）`,{typing:true});
+  toast('生成完成 · 游戏已更新');
+  $('liveTxt').textContent='系统就绪'; State.busy=false; $('runBtn').disabled=false;
+}
+function clearLog(){ $('logStream').innerHTML=''; }
+
+/* ============================================================
+ *  程序化游戏引擎 —— 史莱姆勇者（Canvas / 无外部资源）
+ *  美术、动画、音效全部由代码生成
+ * ============================================================ */
+const game=(function(){
+  const cv=$('game'), ctx=cv.getContext('2d'); const W=cv.width,H=cv.height;
+  let cfg=JSON.parse(JSON.stringify(State.config));
+  let hero,slimes,particles,score,hp,gameOver,tick=0,keys={};
+  const GROUND=H-46;
+
+  function setConfig(c){
+    cfg=JSON.parse(JSON.stringify(c));
+    slimes.forEach(s=>s.color=c.slimeColor);
+    hero.color=c.heroColor;
+    // 金色史莱姆
+    if(c.goldSlime && !slimes.some(s=>s.gold)){
+      slimes.push(makeSlime(W-40,c.goldSlime));
+    }
+    hp=c.extraLife?5:3; updateHud();
+  }
+  function makeSlime(x,gold=false){
+    return {x,y:GROUND-26,w:34,h:26,vx:(Math.random()>.5?1:-1)*(0.6*cfg.slimeSpeed),
+      color:gold?'#fbbf24':cfg.slimeColor,gold,alive:true,bounce:Math.random()*6,hit:0};
+  }
+  function reset(){
+    hero={x:60,y:GROUND-38,w:30,h:38,vy:0,onGround:true,face:1,color:cfg.heroColor,atk:0,walk:0};
+    slimes=[makeSlime(300),makeSlime(410)];
+    if(cfg.goldSlime) slimes.push(makeSlime(W-50,true));
+    particles=[]; score=0; hp=cfg.extraLife?5:3; gameOver=false; updateHud();
+  }
+  function updateHud(){
+    $('hudScore').textContent='SCORE '+String(score).padStart(4,'0');
+    $('hudHp').textContent='HP '+(gameOver?'♡♡♡':'♥'.repeat(Math.max(0,hp))+'♡'.repeat(Math.max(0,(cfg.extraLife?5:3)-hp)));
+    $('screenBadge').textContent='SLIME HERO · '+(cfg.bg==='night'?'夜':'昼')+' · 程序化生成';
+  }
+  function sfx(type){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
+      sfx.ctx=sfx.ctx||new AC(); const a=sfx.ctx;
+      const o=a.createOscillator(),g=a.createGain(); o.connect(g); g.connect(a.destination);
+      const f={jump:[420,680,.12],hit:[220,90,.15],coin:[880,1320,.18]}[type]||[300,300,.1];
+      o.frequency.setValueAtTime(f[0],a.currentTime); o.frequency.exponentialRampToValueAtTime(f[1],a.currentTime+f[2]);
+      g.gain.setValueAtTime(.08,a.currentTime); g.gain.exponentialRampToValueAtTime(.001,a.currentTime+f[2]);
+      o.start(); o.stop(a.currentTime+f[2]);
+    }catch(e){}
+  }
+  function burst(x,y,color,n=10){
+    for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-.5)*5,vy:-Math.random()*4-1,
+      life:1,color,size:Math.random()*3+2});
+  }
+  function step(){
+    tick++;
+    if(!gameOver){
+      // 输入
+      const sp=3.2*cfg.heroSpeed;
+      if(keys.left){hero.x-=sp;hero.face=-1;hero.walk++;}
+      if(keys.right){hero.x+=sp;hero.face=1;hero.walk++;}
+      hero.x=Math.max(0,Math.min(W-hero.w,hero.x));
+      if(keys.jump&&hero.onGround){hero.vy=-cfg.jumpPower;hero.onGround=false;sfx('jump');}
+      if(keys.atk&&hero.atk<=0){hero.atk=18;sfx('hit');}
+      if(hero.atk>0)hero.atk--;
+      hero.vy+=cfg.gravity; hero.y+=hero.vy;
+      if(hero.y>=GROUND-hero.h){hero.y=GROUND-hero.h;hero.vy=0;hero.onGround=true;}
+      // 史莱姆
+      for(const s of slimes){
+        if(!s.alive)continue;
+        s.x+=s.vx; s.bounce+=.12*s.slimeSpeed;
+        if(s.x<0||s.x>W-s.w)s.vx*=-1;
+        s.y=GROUND-s.h-Math.abs(Math.sin(s.bounce))*8;
+        if(s.hit>0)s.hit--;
+        // 碰撞
+        const dx=(hero.x+hero.w/2)-(s.x+s.w/2),dy=(hero.y+hero.h/2)-(s.y+s.h/2);
+        if(Math.abs(dx)<26&&Math.abs(dy)<30){
+          if(hero.atk>4){ s.alive=false; burst(s.x+s.w/2,s.y+s.h/2,s.color,14); sfx('coin');
+            score+=(s.gold?100:50)*cfg.scoreMul; updateHud(); }
+          else if(s.hit<=0){ hp--; s.hit=40; hero.x-=hero.face*18; burst(hero.x,hero.y,'#f87171',8); updateHud();
+            if(hp<=0){gameOver=true;$('gameStateTag').textContent='GAME OVER';} }
+        }
+      }
+      // 重生
+      if(slimes.every(s=>!s.alive)){ setTimeout(()=>{slimes=[makeSlime(300),makeSlime(410)];if(cfg.goldSlime)slimes.push(makeSlime(W-50,true));},700); }
+    }
+    for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.life-=.025;}
+    particles=particles.filter(p=>p.life>0);
+  }
+  function drawBg(){
+    const g=ctx.createLinearGradient(0,0,0,H);
+    if(cfg.bg==='night'){g.addColorStop(0,'#0a0e2a');g.addColorStop(1,'#1a1a40');}
+    else{g.addColorStop(0,'#0f2a4a');g.addColorStop(1,'#1b4a6b');}
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    // 远景山
+    ctx.fillStyle=cfg.bg==='night'?'rgba(30,40,80,.7)':'rgba(20,70,100,.6)';
+    for(let i=0;i<5;i++){ ctx.beginPath();ctx.moveTo(i*110-20,GROUND);
+      ctx.lineTo(i*110+50,GROUND-70-(i%2)*30);ctx.lineTo(i*110+120,GROUND);ctx.fill(); }
+    // 太阳/月亮 + 星星
+    if(cfg.bg==='night'){
+      ctx.fillStyle='#e2e8f0';for(let i=0;i<28;i++){const sx=(i*97+33)%W,sy=(i*53+17)%140;
+        ctx.globalAlpha=.3+.5*Math.abs(Math.sin(tick*.03+i));ctx.fillRect(sx,sy,2,2);}ctx.globalAlpha=1;
+      ctx.beginPath();ctx.arc(W-70,55,20,0,7);ctx.fillStyle='#fef3c7';ctx.fill();
+    } else { ctx.beginPath();ctx.arc(W-70,55,22,0,7);ctx.fillStyle='rgba(253,224,71,.85)';ctx.fill(); }
+    // 地面
+    ctx.fillStyle=cfg.bg==='night'?'#1e293b':'#166534';ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.fillStyle=cfg.bg==='night'?'#334155':'#22c55e';ctx.fillRect(0,GROUND,W,4);
+    for(let x=0;x<W;x+=24){ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(x,GROUND+8,12,3);}
+  }
+  function drawHero(){
+    const x=hero.x|0,y=hero.y|0;
+    const bob=hero.onGround?Math.sin(hero.walk*.5)*1.5:0;
+    // 身体（程序化像素绘制）
+    ctx.fillStyle=hero.color; ctx.fillRect(x,y+8+bob,hero.w,hero.h-8);
+    ctx.fillStyle='#0f172a';ctx.fillRect(x+4,y+16+bob,5,5);ctx.fillRect(x+17,y+16+bob,5,5); // 眼
+    ctx.fillStyle='#fff';ctx.fillRect(x+5,y+17+bob,2,2);ctx.fillRect(x+18,y+17+bob,2,2);
+    ctx.fillStyle='#0f172a';ctx.fillRect(x+7,y+28+bob,hero.w-14,2); // 嘴
+    // 腿
+    const lg=hero.onGround?Math.sin(hero.walk*.5)*4:0;
+    ctx.fillStyle=hero.color;ctx.fillRect(x+5,y+hero.h-6+bob-Math.max(0,lg),7,6);ctx.fillRect(x+17,y+hero.h-6+bob-Math.max(0,-lg),7,6);
+    // 攻击特效（程序化剑光）
+    if(hero.atk>4){ ctx.strokeStyle='#e0f2fe';ctx.lineWidth=4;ctx.globalAlpha=hero.atk/18;
+      ctx.beginPath();ctx.arc(x+hero.w/2,y+hero.h/2,28,hero.face>0?-.8:Math.PI+.8,hero.face>0?.8:Math.PI-.8);ctx.stroke();ctx.globalAlpha=1; }
+  }
+  function drawSlime(s){
+    if(!s.alive)return;
+    const x=s.x|0,y=s.y|0;
+    const sq=1+Math.sin(s.bounce)*.12;
+    ctx.save();ctx.translate(x+s.w/2,y+s.h);ctx.scale(1/sq,sq);
+    ctx.fillStyle=s.hit>0?'#fff':s.color;
+    ctx.beginPath();ctx.moveTo(-s.w/2,0);ctx.quadraticCurveTo(-s.w/2,-s.h,0,-s.h);
+    ctx.quadraticCurveTo(s.w/2,-s.h,s.w/2,0);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#0f172a';ctx.fillRect(-8,-16,4,5);ctx.fillRect(5,-16,4,5);
+    if(s.gold){ctx.fillStyle='#fef3c7';ctx.font='bold 9px Consolas';ctx.fillText('★',-3,-22);}
+    ctx.restore();
+  }
+  function render(){
+    drawBg();
+    slimes.forEach(drawSlime);
+    drawHero();
+    for(const p of particles){ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);}ctx.globalAlpha=1;
+    if(gameOver){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#fff';ctx.font='bold 30px Microsoft YaHei';ctx.textAlign='center';ctx.fillText('GAME OVER',W/2,H/2);
+      ctx.font='14px Microsoft YaHei';ctx.fillStyle='#fbbf24';ctx.fillText('按 R 重新开始 · 或回滚到上一版本',W/2,H/2+28);ctx.textAlign='left';}
+  }
+  function loop(){step();render();requestAnimationFrame(loop);}
+  addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();
+    if(k==='arrowleft'||k==='a')keys.left=true;
+    if(k==='arrowright'||k==='d')keys.right=true;
+    if(k==='arrowup'||k==='w'||k===' ')keys.jump=true;
+    if(k==='j')keys.atk=true;
+    if(k==='r'){reset();$('gameStateTag').textContent='可游玩';}
+    if(['arrowleft','arrowright','arrowup',' '].includes(k))e.preventDefault();
+  });
+  addEventListener('keyup',e=>{
+    const k=e.key.toLowerCase();
+    if(k==='arrowleft'||k==='a')keys.left=false;
+    if(k==='arrowright'||k==='d')keys.right=false;
+    if(k==='arrowup'||k==='w'||k===' ')keys.jump=false;
+    if(k==='j')keys.atk=false;
+  });
+  reset(); loop();
+  return {setConfig};
+})();
+
+/* ---------- 启动 ---------- */
+function init(){
+  renderAgents(); renderQuick(); renderLedger(); renderTimeline();
+  snapshot('v1 · 初始版本','程序化生成：史莱姆勇者 · 昼间场景 · 基础玩法');
+  $('runBtn').onclick=runFlow;
+  $('reqInput').addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='Enter')runFlow(); });
+  // 启动动画（点击遮罩可立即跳过；#noboot 快速通道用于应急/自动化）
+  $('boot').onclick=()=>$('boot').classList.add('hide');
+  if(location.hash.indexOf('noboot')>=0){ $('boot').style.display='none'; return; }
+  const bar=$('bootBar'),tip=$('bootTip');
+  const tips=['正在初始化智能体内核...','加载需求账本与事务链...','注册 10 项开发工具...','生成史莱姆勇者程序化素材...','准备就绪'];
+  let p=0; const iv=setInterval(()=>{ p+=20+Math.random()*12; bar.style.width=Math.min(100,p)+'%';
+    tip.textContent=tips[Math.min(tips.length-1,Math.floor(p/20))];
+    if(p>=100){clearInterval(iv);setTimeout(()=>$('boot').classList.add('hide'),350);} },230);
+  setTimeout(()=>$('boot').classList.add('hide'),2600); // 兜底：极端情况强制进入
+}
+init();
+</script>
+</body>
+</html>

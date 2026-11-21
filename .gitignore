@@ -1,0 +1,29 @@
+# 运行态数据（需求/事务/快照，含本地状态，不入库）
+state/
+_selftest/
+*.state.json
+
+# 密钥与本地配置（严禁真实密钥入库）
+.env
+*api_key*
+*secret*
+config.local.py
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 大文件（模型权重/数据集用链接提供，不入库）
+*.bin
+*.pt
+*.pth
+*.onnx
+*.zip
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+*.log
